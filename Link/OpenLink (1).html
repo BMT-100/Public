@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title></title>
+<meta name="robots" content="noindex,nofollow">
+</head>
+<body>
+<script>
+(() => {
+  "use strict";
+
+  // ========= فقط این تنظیمات را تغییر دهید =========
+  const HTML_FILE_NAME = "OpenLink.html";
+  const DESTINATION_URL = "https://B2n.ir/pg6128";
+  const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxxpDZjK4uotudIdZRL1xebemfclvjF1SbYuu3xWiC9vto1tKus5ODrBNU12QmLB2TO/exec";
+  const IP_WAIT_MS = 700;
+  // ===============================================
+
+  const code = (new URLSearchParams(location.search).get("u") || "").slice(0, 200);
+
+  const pad = x => String(x).padStart(2, "0");
+  const now = new Date();
+  const date = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  const time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+  function deviceId() {
+    try {
+      const key = "OpenLink_DeviceID";
+      let value = localStorage.getItem(key);
+      if (!value) {
+        value = crypto && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : "dev-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
+        localStorage.setItem(key, value);
+      }
+      return value;
+    } catch (e) {
+      return "tmp-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
+    }
+  }
+
+  async function publicIp() {
+    if (!IP_WAIT_MS) return "";
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), IP_WAIT_MS);
+    try {
+      const response = await fetch("https://api.ipify.org?format=json", {
+        cache: "no-store", signal: controller.signal
+      });
+      if (!response.ok) return "";
+      const data = await response.json();
+      return typeof data.ip === "string" ? data.ip.slice(0, 80) : "";
+    } catch (e) {
+      return "";
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function send(values) {
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec(?:\?.*)?$/.test(GOOGLE_SCRIPT_URL)) {
+      return false;
+    }
+    const body = new URLSearchParams(values);
+    // sendBeacon is specifically suited to requests made immediately before navigation.
+    try {
+      if (navigator.sendBeacon && navigator.sendBeacon(GOOGLE_SCRIPT_URL, body)) {
+        return true; // queued, not proof of server-side success
+      }
+    } catch (_) {}
+    try {
+      fetch(GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        body,
+        keepalive: true
+      }).catch(() => {});
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function redirect() {
+    location.replace(DESTINATION_URL);
+  }
+
+  async function main() {
+    const ip = await publicIp();
+    const values = {
+      date, time, u: code, deviceId: deviceId(), ip,
+      htmlFileName: HTML_FILE_NAME,
+      destinationUrl: DESTINATION_URL,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || ""
+    };
+    send(values);
+    redirect();
+  }
+  main().catch(redirect);
+})();
+</script>
+</body>
+</html>
